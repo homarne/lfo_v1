@@ -22,6 +22,7 @@ All text above, and the splash screen must be included in any redistribution
 //#include <Adafruit_SSD1306.h>
 #include <Adafruit_SH1106.h>
 #include "math.h"
+#include <ltc2656_fast_spi.h>
 
 // Relevant Headers
 #include "icons.h"
@@ -82,10 +83,28 @@ signed short triWaveDir = 1;
 // variables for the interrupt wave calulation
 uint32_t ulOutput_0 = 0;
 uint32_t ulOutput_1 = 0;
+
+// ltc2656 support
+LTC2656FastSPI FASTDAC;
+dac_data dac_data_8ch[8];
+//const int dacSelectPin = 31;
+
+uint32_t out_value = 0;
+#define    DAC_FS 0x0000FFFF
+#define STEP_SIZE 0x00000800
+
 // -------------------------------------------
 
 void setup()   {                
   Serial.begin(9600);
+  
+  
+  //pinMode(dacSelectPin, OUTPUT);
+
+  SPI.begin();
+  SPI.beginTransaction(SPISettings(50000000, MSBFIRST, SPI_MODE0));
+  FASTDAC.Begin();
+  
 
   // Generate sin table
   generateSineTable();
@@ -264,6 +283,32 @@ void switchWaves(signed char toWave) {
   selected_wave = toWave;
 }
 
+
+void update_dac_data() {
+  // outputs raw ltc2656 data array
+  // set to 1 to ramp DAC data between zero and DAC_FS
+  // STEP_SIZE sets ramp rate - (DAC_FS+1)/STEP_SIZE = number of steps in ramp
+  out_value = out_value + STEP_SIZE;
+  if (out_value >= DAC_FS+1){
+    out_value = out_value - (DAC_FS+1);
+  } 
+
+  // set DAC A data to out_value
+  dac_data_8ch[DAC_A].dac_word = out_value;
+
+  // set all DACs to the same value
+  dac_data_8ch[DAC_B] = 
+  dac_data_8ch[DAC_C] = 
+  dac_data_8ch[DAC_D] = 
+  dac_data_8ch[DAC_E] = 
+  dac_data_8ch[DAC_F] = 
+  dac_data_8ch[DAC_G] = 
+  dac_data_8ch[DAC_H] = dac_data_8ch[0];
+
+  return;
+}
+
+
 void TC4_Handler()
 {
   // We need to get the status to clear it and allow the interrupt to fire again
@@ -276,10 +321,23 @@ void TC4_Handler()
   dacc_set_channel_selection(DACC_INTERFACE, 1);
   dacc_write_conversion_data(DACC_INTERFACE, ulOutput_1);
 
+  FASTDAC.WriteDac8(dac_data_8ch);
+
 
   // Write the wave calculations to out
   ulOutput_0 = getWaveCalculations(0);
   ulOutput_1 = getWaveCalculations(1); 
+
+  update_dac_data();
+
+//  dac_data_8ch[0].dac_word = getWaveCalculations(0);
+//  dac_data_8ch[1].dac_word = getWaveCalculations(1); 
+//  dac_data_8ch[2].dac_word = 0;
+//  dac_data_8ch[3].dac_word = 0; 
+//  dac_data_8ch[4].dac_word = 0;
+//  dac_data_8ch[5].dac_word = 0; 
+//  dac_data_8ch[6].dac_word = 0;
+//  dac_data_8ch[7].dac_word = 0; 
 
 
 }

@@ -65,10 +65,15 @@ int sawGen(int num) {
   return num;
 }
 
+#define    DAC_FS 0x0000FFFF
 // Outputs a number in a square wave pattern
 int squGen(int num) {
-  if (num > halfSampleCount) { return maxAmplitude; } else { return 0; }
+  if (num > halfSampleCount) { return DAC_FS; } else { return 0; }
 }
+//// Outputs a number in a square wave pattern
+//int squGen(int num) {
+//  if (num > halfSampleCount) { return maxAmplitude; } else { return 0; }
+//}
 
 // Outputs a number in a trangular wave pattern.
 int triGen(int num) {
@@ -78,6 +83,7 @@ int triGen(int num) {
   //return num * (8192 / maxSampleCount);
   return num;
 }
+
 
 // Gets the output value of a given wave number.
 int getWaveCalculations(uint8_t wave_num) {
