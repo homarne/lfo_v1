@@ -129,7 +129,7 @@ void setup()   {
   /* TC4_IRQn where 4 is the timer number * timer channels (3) + the channel number (=(1*3)+1) for timer1 channel1 */
   NVIC_EnableIRQ(TC4_IRQn);
 
-  // this is a cheat - enable the DAC
+  // this is a cheat - enable the Arduino Due DACs
   analogWrite(DAC0,0);
   analogWrite(DAC1,0);
   
@@ -210,7 +210,6 @@ void loop() {
     waves[selected_wave][i]= waves[selected_wave][i] - scaled_difference;
   }
 
-  //waves[selected_wave][WAVE_TYPE] /= 1024; // Difference smoothing will not allow this to work.
 
   // read buttons
   unsigned char button_vals[5] = {0,0,0,0,0};
@@ -283,7 +282,7 @@ void switchWaves(signed char toWave) {
   selected_wave = toWave;
 }
 
-
+// FASTDAC debug
 void update_dac_data() {
   // outputs raw ltc2656 data array
   // set to 1 to ramp DAC data between zero and DAC_FS
@@ -323,21 +322,21 @@ void TC4_Handler()
 
   FASTDAC.WriteDac8(dac_data_8ch);
 
-
   // Write the wave calculations to out
   ulOutput_0 = getWaveCalculations(0);
   ulOutput_1 = getWaveCalculations(1); 
 
-  update_dac_data();
+//  FASTDAC debug
+//  update_dac_data();
 
-//  dac_data_8ch[0].dac_word = getWaveCalculations(0);
-//  dac_data_8ch[1].dac_word = getWaveCalculations(1); 
-//  dac_data_8ch[2].dac_word = 0;
-//  dac_data_8ch[3].dac_word = 0; 
-//  dac_data_8ch[4].dac_word = 0;
-//  dac_data_8ch[5].dac_word = 0; 
-//  dac_data_8ch[6].dac_word = 0;
-//  dac_data_8ch[7].dac_word = 0; 
+  dac_data_8ch[0].dac_word = getWaveCalculations(0);
+  dac_data_8ch[1].dac_word = getWaveCalculations(1); 
+  dac_data_8ch[2].dac_word = getWaveCalculations(2);
+  dac_data_8ch[3].dac_word = getWaveCalculations(3); 
+  dac_data_8ch[4].dac_word = getWaveCalculations(4);
+  dac_data_8ch[5].dac_word = getWaveCalculations(5); 
+  dac_data_8ch[6].dac_word = getWaveCalculations(6);
+  dac_data_8ch[7].dac_word = getWaveCalculations(7); 
 
 
 }
