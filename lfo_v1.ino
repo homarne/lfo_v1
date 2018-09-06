@@ -210,7 +210,6 @@ void loop() {
     waves[selected_wave][i]= waves[selected_wave][i] - scaled_difference;
   }
 
-
   // read buttons
   unsigned char button_vals[5] = {0,0,0,0,0};
   button_vals[0] = digitalRead(53);

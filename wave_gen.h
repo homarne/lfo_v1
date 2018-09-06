@@ -17,7 +17,8 @@ uint8_t selected_wave = 0;
 #define WAVE_ONESHOT 5
 #define WAVE_SIGN 6
 #define WAVE_PROGRESS 7
-uint16_t waves[][8] = 
+
+uint16_t waves[8][8] = 
 {
   {0, 0, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, 0},
@@ -28,6 +29,12 @@ uint16_t waves[][8] =
   {0, 0, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, 0}
 };
+
+uint16_t waves_values[8] =
+{
+  0,0,0,0,0,0,0,0
+};
+
 
 #define TYPE_SQUARE 0
 #define TYPE_SAW 1
@@ -50,8 +57,26 @@ void generateSineTable() {
   }
 }
 
+// Limits the rate of change between last_value and returned value
+// Can be used for square and ramp waves to limit the rate of change 
+// when transitioning between FS and 0, or 0 and FS
+int rateLimit(int wave_value, int last_wave_value) {
+  int return_value = wave_value;
+  if (wave_value < last_wave_value) {
+    if ((last_wave_value - wave_value) > DAC_FS/8) {
+      return_value = last_wave_value - DAC_FS/32;
+    }
+  }
+  if (wave_value > last_wave_value) {
+    if ((wave_value - last_wave_value) > DAC_FS/8) {
+      return_value = last_wave_value + DAC_FS/32;
+    }
+  }
+  return return_value;
+}
+
 // Outputs a number in a sin pattern adjusted to the maximum sample count and amplitude
-int sinGen(int num) {
+int sinGen(int num, int last_wave_value) {
   /* This code kept for legacy reasons.
   float input = ((float)num/(float)maxSampleCount)*2*M_PI;
   return sin(input) * halfAmplitude + halfAmplitude;
@@ -67,17 +92,35 @@ int sinGen(int num) {
 }
 
 // Outputs a number in a sawtooth pattern
-int sawGen(int num) {
+int sawGen(int num, int last_wave_value) {
   return num;
 }
 
+// Outputs a DC level 
+int levelGen(int wave_progress, int last_wave_value) {
+  return wave_progress *16;
+}
+
 // Outputs a number in a square wave pattern
-int squGen(int num) {
-  if (num > MAX_WAVE_COUNT/2) { return DAC_FS; } else { return 0; }
+int squGen(int wave_progress, int last_wave_value) {
+//  if (num > MAX_WAVE_COUNT/2) { return DAC_FS; } else { return 0; }
+
+  uint16_t wave_value;
+  // calculate what the value should be
+  if (wave_progress > MAX_WAVE_COUNT/2) { 
+    wave_value = DAC_FS; 
+  } 
+  else { 
+      wave_value =  0; 
+  }
+
+  //wave_value = rateLimit(wave_value, last_wave_value);
+
+  return wave_value;
 }
 
 // Outputs a number in a trangular wave pattern.
-int triGen(int num) {
+int triGen(int num, int last_wave_value) {
   if (num > MAX_WAVE_COUNT/2) {
     num = MAX_WAVE_COUNT - num;
   }
@@ -89,7 +132,8 @@ int triGen(int num) {
 // Gets the output value of a given wave number.
 int getWaveCalculations(uint8_t wave_num) {
   // need a uint32 so the roll-over is not truncated
-  uint32_t wave_progress = waves[wave_num][WAVE_PROGRESS] + waves[wave_num][WAVE_RATE];
+  uint32_t wave_progress = waves[wave_num][WAVE_PROGRESS] + waves[wave_num][WAVE_RATE]/8;
+  //uint32_t wave_progress = waves[wave_num][WAVE_PROGRESS] + waves[wave_num][WAVE_RATE];
 
   if (wave_progress >= MAX_WAVE_COUNT) {
     waves[wave_num][WAVE_PROGRESS] = wave_progress - MAX_WAVE_COUNT;
@@ -98,15 +142,33 @@ int getWaveCalculations(uint8_t wave_num) {
       waves[wave_num][WAVE_PROGRESS] = wave_progress;
   }
   
+//  switch (waves[wave_num][WAVE_TYPE] / 1024) {
+//    case TYPE_SQUARE:
+//      return squGen(waves[wave_num][WAVE_PROGRESS]);
+//    case TYPE_SAW:
+//      return sawGen(waves[wave_num][WAVE_PROGRESS]);
+//    case TYPE_TRIANGLE:
+//      return triGen(waves[wave_num][WAVE_PROGRESS]);;
+//    case TYPE_SINE:
+//      return sinGen(waves[wave_num][WAVE_PROGRESS]);
+
   switch (waves[wave_num][WAVE_TYPE] / 1024) {
     case TYPE_SQUARE:
-      return squGen(waves[wave_num][WAVE_PROGRESS]);
+      waves_values[wave_num] = squGen(waves[wave_num][WAVE_PROGRESS], waves_values[wave_num]);
+      break;
     case TYPE_SAW:
-      return sawGen(waves[wave_num][WAVE_PROGRESS]);
+      waves_values[wave_num] = sawGen(waves[wave_num][WAVE_PROGRESS], waves_values[wave_num]);
+      break;
     case TYPE_TRIANGLE:
-      return triGen(waves[wave_num][WAVE_PROGRESS]);;
+      waves_values[wave_num] = triGen(waves[wave_num][WAVE_PROGRESS], waves_values[wave_num]);
+      break;
     case TYPE_SINE:
-      return sinGen(waves[wave_num][WAVE_PROGRESS]);
+      //waves_values[wave_num] = sinGen(waves[wave_num][WAVE_PROGRESS], waves_values[wave_num]);
+      waves_values[wave_num] = levelGen(waves[wave_num][WAVE_RATE], waves_values[wave_num]);
   }
+      
+  return  waves_values[wave_num];
+
+
   return 0;
 }
